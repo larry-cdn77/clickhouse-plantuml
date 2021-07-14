@@ -22,6 +22,7 @@ class Tables(MutableSequence):
         client: Client,
         databases: List[str] = None,
         tables: List[str] = None,
+        exclude: str = None,
     ):
         self.client = client
         self.__list = list()  # type: List[Table]
@@ -69,7 +70,9 @@ class Tables(MutableSequence):
         self.__list.insert(i, t)
         self.as_dict[str(t)] = t
 
-    def _get_tables(self, databases: List[str], tables: List[str] = None):
+    def _get_tables(self, databases: List[str], tables: List[str] = None,
+        exclude: str = None):
+        exclude_clause = ""
         query = """
             SELECT
                 database,
@@ -85,18 +88,22 @@ class Tables(MutableSequence):
                 sampling_key
             FROM system.tables
             WHERE database IN %(ds)s
+                {exclude_clause}
                 {name_clause}
             ORDER BY database, name
             """
+        if exclude:
+            exclude_clause = "AND match(name, '%s') == 0" % exclude
         if tables:
-            query = query.format(name_clause="AND name IN %(ns)s")
+            query = query.format(exclude_clause=exclude_clause,
+                name_clause="AND name IN %(ns)s")
             # Here's a trick to get both normal and
             tables += [".inner." + t for t in tables]
             data = self.client.execute_iter_dict(
                 query, {"ds": tuple(databases), "ns": tuple(tables)}
             )
         else:
-            query = query.format(name_clause="")
+            query = query.format(exclude_clause=exclude_clause, name_clause="")
             data = self.client.execute_iter_dict(
                 query,
                 {"ds": tuple(databases)},

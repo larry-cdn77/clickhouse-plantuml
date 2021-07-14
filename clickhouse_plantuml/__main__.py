@@ -4,7 +4,7 @@
 # Copyright (C) 2020 Mikhail f. Shiryaev
 
 """
-The scrip accepts ClickHouse credentials, databases and tables, and produces
+The script accepts ClickHouse credentials, databases and tables, and produces
 the PlantULM schema description. Optionally it could invoke `plantuml` and
 create the graphical output.
 """
@@ -88,6 +88,14 @@ def parse_args() -> Namespace:
         default=[],
         help="tables whitelist to describe. If set, only mentioned tables will"
         "be queried from the server",
+    )
+    clickhouse.add_argument(
+        "-x",
+        "--exclude-table-regex",
+        dest="exclude",
+        default=None,
+        help="regular expression on table name to exclude. If set, matching"
+        "table names will be excluded",
     )
 
     plantuml = parser.add_argument_group("PlantUml parameters")
@@ -185,7 +193,7 @@ def main():
     client = Client(
         host=args.host, port=args.port, user=args.user, password=args.password
     )
-    tables = Tables(client, args.databases, args.tables)
+    tables = Tables(client, args.databases, args.tables, args.exclude)
     logger.debug("Tables are: {}".format(pformat(list(map(str, tables)))))
     if not tables:
         logger.critical("There are no tables with given parameters")
