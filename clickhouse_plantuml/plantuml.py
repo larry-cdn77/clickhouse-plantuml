@@ -19,14 +19,15 @@ def plantuml_header():
             "@startuml",
             "' This diagram is generated with "
             "https://github.com/Felixoid/clickhouse-plantuml",
-            "!define Table(x) class x << (T,mistyrose) >>",
-            "!define View(x) class x << (V,lightblue) >>",
-            "!define MaterializedView(x) class x << (m,orange) >>",
-            "!define Distributed(x) class x << (D,violet) >>",
+            "!function $Table($x) !return 'class \"' + $x + '\" << (T,mistyrose) >>'",
+            "!function $View($x) !return 'class \"' + $x + '\" << (V,lightblue) >>'",
+            "!function $MaterializedView($x) !return 'class \"' + $x + '\" << (m,orange) >>'",
+            "!function $Distributed($x) !return 'class \"' + $x + '\" << (D,violet) >>'",
             "",
             "hide empty methods",
             "hide stereotypes",
             "skinparam classarrowcolor gray",
+            "top to bottom direction",
             "",
             "",
         )
@@ -53,7 +54,7 @@ def plantuml_footer():
 def gen_table(table: Table) -> str:
     t = table
     # Table header
-    code = "{}({}) {{\n".format(table_macros(t.engine), str(t))
+    code = "${}({}) {{\n".format(table_macros(t.engine), dotless_name(t))
 
     code += addSpaces(gen_table_engine(t))
     code += addSpaces(gen_table_columns(t))
@@ -67,13 +68,13 @@ def gen_tables_dependencies(tables: Tables) -> str:
     code = ""
     for t in tables:
         code += "".join(
-            "{} -|> {}\n".format(str(t), d)
+            "{} -|> {}\n".format(dotless_name(t), dotless_name(d))
             for d in t.dependencies
             if d in tables.as_dict
         )
 
         code += "".join(
-            "{} -|> {}\n".format(r, str(t))
+            "{} -|> {}\n".format(dotless_name(r), dotless_name(t))
             for r in t.rev_dependencies
             if r in tables.as_dict
         )
@@ -148,3 +149,9 @@ def column_keys(column: Column, table_keys: List[str]) -> str:
 def addSpaces(lines: str, amount: int = 2) -> str:
     indent = " " * amount
     return indent + indent.join(lines.splitlines(True))
+
+
+def dotless_name(with_dot: str):
+    elements = str(with_dot).split(".")
+    assert len(elements) == 2
+    return "\"%s\"" % " ".join(elements)
