@@ -28,9 +28,9 @@ class Tables(MutableSequence):
         self.__list = list()  # type: List[Table]
         self.as_dict = dict()  # type: Dict[str, Table]
         if databases:
-            self._get_tables(databases, tables)
+            self._get_tables(databases, tables, exclude)
             self._get_columns()
-            self._merge_matviews()
+            self._add_matview_tos()
 
     def __delitem__(self, i):
         if isinstance(i, int):
@@ -146,7 +146,7 @@ class Tables(MutableSequence):
             column = Column(**c)
             self[column.db_table].add_column(column)
 
-    def _merge_matviews(self):
+    def _add_matview_tos(self):
         """
         MATERIALIZED VIEW is presented in a database as two tables:
             - `database`.`mat_view_name` - the view
@@ -156,8 +156,8 @@ class Tables(MutableSequence):
             - `database`.`data_table_name` - particular table name if MV is
                 created as `CREATE MATERIALIZED VIEW d.t TO d.data_table_name`
 
-        This method applies inner table `*_key` and `columns` attributes to the
-        MaterializedView one and deletes inner from self
+        This method applies extends the materialized view with its data/target
+        table as a dependency
         """
 
         mat_views = tuple(t for t in self if t.engine == "MaterializedView")
@@ -181,23 +181,9 @@ class Tables(MutableSequence):
                 continue
 
             data_table = self[data_table]
-            # Rename table name for each mat_view's column
-            # otherwise we won't be able to add them there
-            for c in data_table.columns:
-                c.table = str(mv)
 
             mv.engine_config = [
                 ("data_table_name", str(data_table)),
                 ("data_table_engine", data_table.engine),
             ] + data_table.engine_config
-            for attr in (
-                "partition_key",
-                "sorting_key",
-                "primary_key",
-                "sampling_key",
-                "columns",
-                "replication_config",
-            ):
-                setattr(mv, attr, getattr(data_table, attr))
-
-            self.remove(data_table)
+            mv.dependencies.append(str(data_table))
