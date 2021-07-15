@@ -89,6 +89,10 @@ def table_macros(table_type: str):
 
 def gen_table_engine(table: Table) -> str:
     t = table
+
+    if t.engine == "MaterializedView":
+        return ""
+
     code = "ENGINE=**{}**\n".format(t.engine)
     if t.engine_config:
         code += "..engine config..\n"
@@ -105,6 +109,10 @@ def gen_table_engine(table: Table) -> str:
 
 def gen_table_columns(table: Table) -> str:
     t = table
+
+    if t.engine == "MaterializedView":
+        return ""
+
     table_keys = ["partition", "sorting", "sampling"]
     if t.sorting_key != t.primary_key:
         # If primary != sorting, it's worth to append it
